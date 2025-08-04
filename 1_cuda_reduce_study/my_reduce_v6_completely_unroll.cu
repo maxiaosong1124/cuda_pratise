@@ -7,29 +7,58 @@
 
 __device__ void warp_reduce(volatile float* cache, unsigned int tid)
 {
-    cache[tid] += cache[tid + 32];
-    cache[tid] += cache[tid + 16];
-    cache[tid] += cache[tid + 8];
-    cache[tid] += cache[tid + 4];
-    cache[tid] += cache[tid + 2];
-    cache[tid] += cache[tid + 1];
+        cache[tid] += cache[tid + 32];
+        cache[tid] += cache[tid + 16];
+        cache[tid] += cache[tid + 8];
+        cache[tid] += cache[tid + 4];
+        cache[tid] += cache[tid + 2];
+        cache[tid] += cache[tid + 1];
 }
 
 __global__ void reduce(float* d_input, float* d_output)
 {
-    __shared__ float shared[THREAD_PER_BLOCK];
+     __shared__ float shared[THREAD_PER_BLOCK];
 
     float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
     shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
     __syncthreads();
 
-    for(int i = blockDim.x / 2; i > 32; i /= 2)
+    //1.使用宏对循环进行完全展开
+    // #pragma unroll
+    // for(int i = blockDim.x / 2; i > 32; i /= 2)
+    // {
+    //     if(threadIdx.x < i)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + i];
+    //     }
+    //     __syncthreads();
+    // }
+    //2.手动展开循环
+    if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
     {
-        if(threadIdx.x < i)
+        if(threadIdx.x < 256)
         {
-            shared[threadIdx.x] += shared[threadIdx.x + i];
+            shared[threadIdx.x] += shared[threadIdx.x + 256];
         }
         __syncthreads();
+    }
+
+    if(THREAD_PER_BLOCK >= 256)
+    {
+        if(threadIdx.x < 128)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + 128];
+        }
+        __syncthreads();
+    }
+
+    if(THREAD_PER_BLOCK >= 128)
+    {
+        if(threadIdx.x < 64)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + 64];
+            __syncthreads();
+        }
     }
 
     if(threadIdx.x < 32)

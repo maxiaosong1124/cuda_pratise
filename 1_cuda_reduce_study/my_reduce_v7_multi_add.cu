@@ -7,29 +7,69 @@
 
 __device__ void warp_reduce(volatile float* cache, unsigned int tid)
 {
-    cache[tid] += cache[tid + 32];
-    cache[tid] += cache[tid + 16];
-    cache[tid] += cache[tid + 8];
-    cache[tid] += cache[tid + 4];
-    cache[tid] += cache[tid + 2];
-    cache[tid] += cache[tid + 1];
+        cache[tid] += cache[tid + 32];
+        cache[tid] += cache[tid + 16];
+        cache[tid] += cache[tid + 8];
+        cache[tid] += cache[tid + 4];
+        cache[tid] += cache[tid + 2];
+        cache[tid] += cache[tid + 1];
 }
-
+template<unsigned int NUM_PER_BLOCK>
 __global__ void reduce(float* d_input, float* d_output)
 {
     __shared__ float shared[THREAD_PER_BLOCK];
+    float *input_begin = d_input + blockIdx.x * NUM_PER_BLOCK; 
+    shared[threadIdx.x] = 0.0f;
 
-    float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
-    shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
+    for(int i = 0; i < NUM_PER_BLOCK / THREAD_PER_BLOCK; ++i)
+    {
+        int idx = threadIdx.x + i * THREAD_PER_BLOCK;
+        if (idx < NUM_PER_BLOCK) {
+            shared[threadIdx.x] += input_begin[idx];
+        }
+    }
     __syncthreads();
 
-    for(int i = blockDim.x / 2; i > 32; i /= 2)
+    // float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
+    // shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
+    // __syncthreads();
+
+    //1.使用宏对循环进行完全展开
+    // #pragma unroll
+    // for(int i = blockDim.x / 2; i > 32; i /= 2)
+    // {
+    //     if(threadIdx.x < i)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + i];
+    //     }
+    //     __syncthreads();
+    // }
+    //2.手动展开循环
+    if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
     {
-        if(threadIdx.x < i)
+        if(threadIdx.x < 256)
         {
-            shared[threadIdx.x] += shared[threadIdx.x + i];
+            shared[threadIdx.x] += shared[threadIdx.x + 256];
         }
         __syncthreads();
+    }
+
+    if(THREAD_PER_BLOCK >= 256)
+    {
+        if(threadIdx.x < 128)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + 128];
+        }
+        __syncthreads();
+    }
+
+    if(THREAD_PER_BLOCK >= 128)
+    {
+        if(threadIdx.x < 64)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + 64];
+            __syncthreads();
+        }
     }
 
     if(threadIdx.x < 32)
@@ -66,7 +106,9 @@ int main()
     float* d_input = nullptr;
     cudaMalloc((void**)&d_input, N * sizeof(float));
 
-    int block_num = N / THREAD_PER_BLOCK / 2;
+    const int block_num = 1024;
+    const int num_per_block = N / block_num;
+
     float* output = (float*)malloc(block_num * sizeof(float));
     float* d_output = nullptr;
     cudaMalloc((void**)&d_output, block_num * sizeof(float));
@@ -81,9 +123,9 @@ int main()
     for(int i = 0; i < block_num; ++i)
     {
         float cur = 0;
-        for(int j = 0; j < 2 * THREAD_PER_BLOCK; ++j)
+        for(int j = 0; j < num_per_block; ++j)
         {
-            cur += input[i * 2 * THREAD_PER_BLOCK + j];
+            cur += input[i * num_per_block + j];
         }
         result[i] = cur;
     }
@@ -95,7 +137,9 @@ int main()
     dim3 block(THREAD_PER_BLOCK);
 
     //launch kernel
-    reduce<<<grid, block>>>(d_input, d_output);
+    printf("kernel start\n");
+    reduce<num_per_block><<<grid, block>>>(d_input, d_output);
+    printf("kernel end\n");
 
     //copy output data to host
     cudaMemcpy(output, d_output, block_num * sizeof(float), cudaMemcpyDeviceToHost);

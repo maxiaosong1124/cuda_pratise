@@ -1,0 +1,12 @@
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v0_global_memory.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v1_shared_memory.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v2_no_divergence_branch.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v3_no_bank_conflict.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v4_add_during_load_plan_a.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v4_add_during_load_plan_b.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v5_unroll_last_warp.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v6_completely_unroll.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v7_multi_add.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/my_reduce_v8_shuffle.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/edit_cache.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/1_cuda_reduce_study/build/CMakeFiles/rebuild_cache.dir
