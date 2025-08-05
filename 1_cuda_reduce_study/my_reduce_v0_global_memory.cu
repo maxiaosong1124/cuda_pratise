@@ -44,7 +44,7 @@ bool check(float* output, float* result, int n)
 {
     for(int i = 0; i < n; ++i)
     {
-        if(output[i] - result[i] > 0.005)
+        if(abs(output[i] - result[i]) > 0.005)
         {
             printf("Error at index %d: output = %f, result = %f\n", i, output[i], result[i]);
             return false;

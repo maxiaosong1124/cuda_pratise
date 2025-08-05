@@ -9,35 +9,15 @@ __global__ void reduce(float* d_input, float* d_output)
 {   
     
     //2.按照GPU的线程索引来进行实现
-   // __shared__ float shared[THREAD_PER_BLOCK];
-    // int tid = threadIdx.x + blockDim.x * blockIdx.x;
-    // int index = threadIdx.x;
-    // for(int i = 1; i < blockDim.x; i *= 2)
-    // {
-    //     if(index % (i * 2) == 0)
-    //     {
-    //         d_input[tid] += d_input[tid + i];
-    //     }
-    //     __syncthreads();
-    // }
-    // if(index == 0)
-    // {
-    //     d_output[blockIdx.x] = d_input[tid];
-    // }
-
-    //1.按照block内的线程偏移地址来进行实现，类似于CPU的计算方式
+     int tid = threadIdx.x + blockDim.x * blockIdx.x;
     __shared__ float shared[THREAD_PER_BLOCK];
-
-    float* input_begin = d_input + blockDim.x * blockIdx.x;
-    shared[threadIdx.x] = input_begin[threadIdx.x];
+    shared[threadIdx.x] = d_input[tid];
     __syncthreads();
-    //每次将block内的线程数除以2，直到只剩下一个线程
     for(int i = blockDim.x / 2; i > 0; i /= 2)
     {
         if(threadIdx.x < i)
         {
-            int index = threadIdx.x;
-            shared[index] += shared[index + i];
+            shared[threadIdx.x] += shared[threadIdx.x + i];
         }
         __syncthreads();
     }
@@ -46,13 +26,35 @@ __global__ void reduce(float* d_input, float* d_output)
     {
         d_output[blockIdx.x] = shared[0];
     }
+
+    //1.按照block内的线程偏移地址来进行实现，类似于CPU的计算方式
+    // __shared__ float shared[THREAD_PER_BLOCK];
+
+    // float* input_begin = d_input + blockDim.x * blockIdx.x;
+    // shared[threadIdx.x] = input_begin[threadIdx.x];
+    // __syncthreads();
+    // //每次将block内的线程数除以2，直到只剩下一个线程
+    // for(int i = blockDim.x / 2; i > 0; i /= 2)
+    // {
+    //     if(threadIdx.x < i)
+    //     {
+    //         int index = threadIdx.x;
+    //         shared[index] += shared[index + i];
+    //     }
+    //     __syncthreads();
+    // }
+
+    // if(threadIdx.x == 0)
+    // {
+    //     d_output[blockIdx.x] = shared[0];
+    // }
 }
 
 bool check(float* output, float* result, int n)
 {
     for(int i = 0; i < n; ++i)
     {
-        if(output[i] - result[i] > 0.005)
+        if(abs(output[i] - result[i]) > 0.005)
         {
             printf("Error at index %d: output = %f, result = %f\n", i, output[i], result[i]);
             return false;

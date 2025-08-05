@@ -17,12 +17,35 @@ __device__ void warp_reduce(volatile float* cache, unsigned int tid)
 
 __global__ void reduce(float* d_input, float* d_output)
 {
+    // __shared__ float shared[THREAD_PER_BLOCK];
+
+    // float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
+    // shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
+    // __syncthreads();
+
+    // for(int i = blockDim.x / 2; i > 32; i /= 2)
+    // {
+    //     if(threadIdx.x < i)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + i];
+    //     }
+    //     __syncthreads();
+    // }
+
+    // if(threadIdx.x < 32)
+    // {
+    //     warp_reduce(shared, threadIdx.x);
+    // }
+
+    // if(threadIdx.x == 0)
+    // {
+    //     d_output[blockIdx.x] = shared[0];
+    // }
+    //2.使用全局索引tid进行计算
     __shared__ float shared[THREAD_PER_BLOCK];
-
-    float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
-    shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
+    int tid = threadIdx.x + blockIdx.x * blockDim.x * 2;
+    shared[threadIdx.x] = d_input[tid] + d_input[tid + blockDim.x];
     __syncthreads();
-
     for(int i = blockDim.x / 2; i > 32; i /= 2)
     {
         if(threadIdx.x < i)
@@ -41,6 +64,7 @@ __global__ void reduce(float* d_input, float* d_output)
     {
         d_output[blockIdx.x] = shared[0];
     }
+
 }
 
 bool check_result(float* result, float* output, int n)

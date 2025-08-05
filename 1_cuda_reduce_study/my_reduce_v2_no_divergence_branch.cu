@@ -9,33 +9,14 @@ __global__ void reduce(float* d_input, float* d_output)
 {   
     
     //2.按照GPU的线程索引来进行实现
-   // __shared__ float shared[THREAD_PER_BLOCK];
-    // int tid = threadIdx.x + blockDim.x * blockIdx.x;
-    // int index = threadIdx.x;
-    // for(int i = 1; i < blockDim.x; i *= 2)
-    // {
-    //     if(index % (i * 2) == 0)
-    //     {
-    //         d_input[tid] += d_input[tid + i];
-    //     }
-    //     __syncthreads();
-    // }
-    // if(index == 0)
-    // {
-    //     d_output[blockIdx.x] = d_input[tid];
-    // }
-
-    //1.按照block内的线程偏移地址来进行实现，类似于CPU的计算方式
+    int tid = threadIdx.x + blockDim.x * blockIdx.x;
     __shared__ float shared[THREAD_PER_BLOCK];
-
-    float* input_begin = d_input + blockDim.x * blockIdx.x;
-    shared[threadIdx.x] = input_begin[threadIdx.x];
+    shared[threadIdx.x] = d_input[tid];
     __syncthreads();
     for(int i = 1; i < blockDim.x; i *= 2)
     {
-        if(threadIdx.x < blockDim.x / (i * 2))
+        if(threadIdx.x < blockDim.x /(i * 2))
         {
-            //input_begin[threadIdx.x] += input_begin[threadIdx.x + i];
             int index = threadIdx.x * 2 * i;
             shared[index] += shared[index + i];
         }
@@ -46,13 +27,36 @@ __global__ void reduce(float* d_input, float* d_output)
     {
         d_output[blockIdx.x] = shared[0];
     }
+
+
+    //1.按照block内的线程偏移地址来进行实现，类似于CPU的计算方式,这里是使用了连续的线程来进行计算，与之前的v1中的在进入后续迭代之后会有闲置线程不同，也可以减少分支分歧
+    // __shared__ float shared[THREAD_PER_BLOCK];
+
+    // float* input_begin = d_input + blockDim.x * blockIdx.x;
+    // shared[threadIdx.x] = input_begin[threadIdx.x];
+    // __syncthreads();
+    // for(int i = 1; i < blockDim.x; i *= 2)
+    // {
+    //     if(threadIdx.x < blockDim.x / (i * 2))
+    //     {
+    //         //input_begin[threadIdx.x] += input_begin[threadIdx.x + i];
+    //         int index = threadIdx.x * 2 * i;
+    //         shared[index] += shared[index + i];
+    //     }
+    //     __syncthreads();
+    // }
+
+    // if(threadIdx.x == 0)
+    // {
+    //     d_output[blockIdx.x] = shared[0];
+    // }
 }
 
 bool check(float* output, float* result, int n)
 {
     for(int i = 0; i < n; ++i)
     {
-        if(output[i] - result[i] > 0.005)
+        if(abs(output[i] - result[i]) > 0.005)
         {
             printf("Error at index %d: output = %f, result = %f\n", i, output[i], result[i]);
             return false;

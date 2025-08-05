@@ -5,14 +5,13 @@
 
 #define THREAD_PER_BLOCK 256
 
-__device__ void warp_reduce(volatile float* cache, unsigned int tid)
+__device__ float warp_reduce_shuffle(float val)
 {
-        cache[tid] += cache[tid + 32];
-        cache[tid] += cache[tid + 16];
-        cache[tid] += cache[tid + 8];
-        cache[tid] += cache[tid + 4];
-        cache[tid] += cache[tid + 2];
-        cache[tid] += cache[tid + 1];
+    // 使用 warp shuffle 指令进行 warp 内的规约
+    for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    }
+    return val;
 }
 template<unsigned int NUM_PER_BLOCK>
 __global__ void reduce(float* d_input, float* d_output)
@@ -30,56 +29,56 @@ __global__ void reduce(float* d_input, float* d_output)
     }
     __syncthreads();
 
-    // float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
-    // shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
-    // __syncthreads();
-
     //1.使用宏对循环进行完全展开
-    // #pragma unroll
-    // for(int i = blockDim.x / 2; i > 32; i /= 2)
+    #pragma unroll
+    for(int i = blockDim.x / 2; i > 32; i /= 2)
+    {
+        if(threadIdx.x < i)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + i];
+        }
+        __syncthreads();
+    }
+    //2.手动展开循环
+    // if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
     // {
-    //     if(threadIdx.x < i)
+    //     if(threadIdx.x < 256)
     //     {
-    //         shared[threadIdx.x] += shared[threadIdx.x + i];
+    //         shared[threadIdx.x] += shared[threadIdx.x + 256];
     //     }
     //     __syncthreads();
     // }
-    //2.手动展开循环
-    if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
-    {
-        if(threadIdx.x < 256)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 256];
-        }
-        __syncthreads();
-    }
 
-    if(THREAD_PER_BLOCK >= 256)
-    {
-        if(threadIdx.x < 128)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 128];
-        }
-        __syncthreads();
-    }
+    // if(THREAD_PER_BLOCK >= 256)
+    // {
+    //     if(threadIdx.x < 128)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + 128];
+    //     }
+    //     __syncthreads();
+    // }
 
-    if(THREAD_PER_BLOCK >= 128)
-    {
-        if(threadIdx.x < 64)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 64];
-            __syncthreads();
-        }
-    }
+    // if(THREAD_PER_BLOCK >= 128)
+    // {
+    //     if(threadIdx.x < 64)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + 64];
+    //     }
+    //     __syncthreads();
+    // }
 
+    // 使用 warp shuffle 进行 warp 内的规约
+    float val = 0.0f;
     if(threadIdx.x < 32)
     {
-        warp_reduce(shared, threadIdx.x);
+        // 需要包含所有32个元素的和
+        val = shared[threadIdx.x] + shared[threadIdx.x + 32];
+        val = warp_reduce_shuffle(val);
     }
 
     if(threadIdx.x == 0)
     {
-        d_output[blockIdx.x] = shared[0];
+        d_output[blockIdx.x] = val;
     }
 }
 

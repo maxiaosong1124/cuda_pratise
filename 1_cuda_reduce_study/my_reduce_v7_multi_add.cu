@@ -24,53 +24,51 @@ __global__ void reduce(float* d_input, float* d_output)
     for(int i = 0; i < NUM_PER_BLOCK / THREAD_PER_BLOCK; ++i)
     {
         int idx = threadIdx.x + i * THREAD_PER_BLOCK;
-        if (idx < NUM_PER_BLOCK) {
+        if (idx < NUM_PER_BLOCK) 
+        {
             shared[threadIdx.x] += input_begin[idx];
         }
     }
-    __syncthreads();
-
-    // float* input_begin = d_input + blockDim.x * blockIdx.x * 2;
-    // shared[threadIdx.x]  = input_begin[threadIdx.x] + input_begin[threadIdx.x + blockDim.x];
-    // __syncthreads();
+    __syncthreads();//这里的syncthreads在循环之外是因为所有的线程都是独立操作共享内存的地址的，没有线程之间的数据依赖
 
     //1.使用宏对循环进行完全展开
-    // #pragma unroll
-    // for(int i = blockDim.x / 2; i > 32; i /= 2)
+    #pragma unroll
+    for(int i = blockDim.x / 2; i > 32; i /= 2)
+    {
+        if(threadIdx.x < i)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + i];
+        }
+      __syncthreads();//这里在循环内部，是一位在线程操作的时候要依赖于不同的线程操作不同的共享内存地址，需要保证它们两个操作完毕才能进行下一步，否则会导致数据出现错误
+    }
+      
+    //2.手动展开循环
+    // if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
     // {
-    //     if(threadIdx.x < i)
+    //     if(threadIdx.x < 256)
     //     {
-    //         shared[threadIdx.x] += shared[threadIdx.x + i];
+    //         shared[threadIdx.x] += shared[threadIdx.x + 256];
     //     }
     //     __syncthreads();
     // }
-    //2.手动展开循环
-    if(THREAD_PER_BLOCK >= 512) //为了支持更大的线程块
-    {
-        if(threadIdx.x < 256)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 256];
-        }
-        __syncthreads();
-    }
 
-    if(THREAD_PER_BLOCK >= 256)
-    {
-        if(threadIdx.x < 128)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 128];
-        }
-        __syncthreads();
-    }
+    // if(THREAD_PER_BLOCK >= 256)
+    // {
+    //     if(threadIdx.x < 128)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + 128];
+    //     }
+    //     __syncthreads();
+    // }
 
-    if(THREAD_PER_BLOCK >= 128)
-    {
-        if(threadIdx.x < 64)
-        {
-            shared[threadIdx.x] += shared[threadIdx.x + 64];
-            __syncthreads();
-        }
-    }
+    // if(THREAD_PER_BLOCK >= 128)
+    // {
+    //     if(threadIdx.x < 64)
+    //     {
+    //         shared[threadIdx.x] += shared[threadIdx.x + 64];
+    //         __syncthreads();
+    //     }
+    // }
 
     if(threadIdx.x < 32)
     {
