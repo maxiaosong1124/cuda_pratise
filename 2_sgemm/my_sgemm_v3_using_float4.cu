@@ -62,7 +62,7 @@ void cpu_sgemm(float* A, float* B, float* C, const int M, const int N, const int
     }
 }
 
-//shared memory sgemm kernel
+//shared memory sgemm kernel - vectorized parallel loading
 template <unsigned int BLOCK_SIZE>
 __global__ void gpu_sgemm(float* A, float* B, float* C, const int M, const int N, const int K)
 {
@@ -73,21 +73,79 @@ __global__ void gpu_sgemm(float* A, float* B, float* C, const int M, const int N
     int n = blockIdx.x * blockDim.x + threadIdx.x;
     float temp = 0.0f;
     
-    // Load data into shared memory with proper boundary checking
+    // 向量化加载：每个线程使用float4一次加载4个float
+    
+    // Load data into shared memory - vectorized parallel loading
     for(int s = 0; s < K; s += BLOCK_SIZE)
     {
-        // Load A matrix: A[blockIdx.y * BLOCK_SIZE + threadIdx.y][s + threadIdx.x]
-        if ((blockIdx.y * BLOCK_SIZE + threadIdx.y) < M && (s + threadIdx.x) < K) {
-            A_shared[threadIdx.y][threadIdx.x] = A[(blockIdx.y * BLOCK_SIZE + threadIdx.y) * K + (s + threadIdx.x)];
+        // 向量化加载A矩阵：每个线程加载4个连续的float元素
+        if (threadIdx.x * 4 + 3 < BLOCK_SIZE) {
+            int global_row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+            int global_col_base = s + threadIdx.x * 4;
+            
+            if (global_row < M && global_col_base + 3 < K) {
+                float4 a_vec = *reinterpret_cast<float4*>(&A[global_row * K + global_col_base]);
+                A_shared[threadIdx.y][threadIdx.x * 4 + 0] = a_vec.x;
+                A_shared[threadIdx.y][threadIdx.x * 4 + 1] = a_vec.y;
+                A_shared[threadIdx.y][threadIdx.x * 4 + 2] = a_vec.z;
+                A_shared[threadIdx.y][threadIdx.x * 4 + 3] = a_vec.w;
+            } else {
+                // 边界情况：逐个检查并加载
+                for(int i = 0; i < 4; i++) {
+                    int global_col = global_col_base + i;
+                    if (global_row < M && global_col < K) {
+                        A_shared[threadIdx.y][threadIdx.x * 4 + i] = A[global_row * K + global_col];
+                    } else {
+                        A_shared[threadIdx.y][threadIdx.x * 4 + i] = 0.0f;
+                    }
+                }
+            }
         } else {
-            A_shared[threadIdx.y][threadIdx.x] = 0.0f;
+            // 处理不能被4整除的边界情况
+            for(int i = 0; i < 4 && threadIdx.x * 4 + i < BLOCK_SIZE; i++) {
+                int global_row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+                int global_col = s + threadIdx.x * 4 + i;
+                if (global_row < M && global_col < K) {
+                    A_shared[threadIdx.y][threadIdx.x * 4 + i] = A[global_row * K + global_col];
+                } else {
+                    A_shared[threadIdx.y][threadIdx.x * 4 + i] = 0.0f;
+                }
+            }
         }
         
-        // Load B matrix: B[s + threadIdx.y][blockIdx.x * BLOCK_SIZE + threadIdx.x]
-        if ((s + threadIdx.y) < K && (blockIdx.x * BLOCK_SIZE + threadIdx.x) < N) {
-            B_shared[threadIdx.y][threadIdx.x] = B[(s + threadIdx.y) * N + (blockIdx.x * BLOCK_SIZE + threadIdx.x)];
+        // 向量化加载B矩阵：每个线程加载4个连续的float元素
+        if (threadIdx.y * 4 + 3 < BLOCK_SIZE) {
+            int global_row_base = s + threadIdx.y * 4;
+            int global_col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+            
+            if (global_row_base + 3 < K && global_col < N) {
+                // 加载4个连续的行元素
+                B_shared[threadIdx.y * 4 + 0][threadIdx.x] = B[(global_row_base + 0) * N + global_col];
+                B_shared[threadIdx.y * 4 + 1][threadIdx.x] = B[(global_row_base + 1) * N + global_col];
+                B_shared[threadIdx.y * 4 + 2][threadIdx.x] = B[(global_row_base + 2) * N + global_col];
+                B_shared[threadIdx.y * 4 + 3][threadIdx.x] = B[(global_row_base + 3) * N + global_col];
+            } else {
+                // 边界情况：逐个检查并加载
+                for(int i = 0; i < 4; i++) {
+                    int global_row = global_row_base + i;
+                    if (global_row < K && global_col < N) {
+                        B_shared[threadIdx.y * 4 + i][threadIdx.x] = B[global_row * N + global_col];
+                    } else {
+                        B_shared[threadIdx.y * 4 + i][threadIdx.x] = 0.0f;
+                    }
+                }
+            }
         } else {
-            B_shared[threadIdx.y][threadIdx.x] = 0.0f;
+            // 处理不能被4整除的边界情况
+            for(int i = 0; i < 4 && threadIdx.y * 4 + i < BLOCK_SIZE; i++) {
+                int global_row = s + threadIdx.y * 4 + i;
+                int global_col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+                if (global_row < K && global_col < N) {
+                    B_shared[threadIdx.y * 4 + i][threadIdx.x] = B[global_row * N + global_col];
+                } else {
+                    B_shared[threadIdx.y * 4 + i][threadIdx.x] = 0.0f;
+                }
+            }
         }
         
         __syncthreads();

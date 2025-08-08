@@ -1,6 +1,0 @@
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/my_sgemm_v0_global_mem.dir
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/my_sgemm_v1_shared_mem.dir
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/my_sgemm_v2_shared_mem_sliding_window.dir
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/my_sgemm_v3_increase_work_of_per_thread.dir
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/edit_cache.dir
-/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/rebuild_cache.dir

@@ -107,9 +107,9 @@ __global__ void gpu_sgemm(float* A, float* B, float* C, const int M, const int N
 
 int main()
 {
-    constexpr int m = 1024;
-    constexpr int n = 1024;
-    constexpr int k = 1024;
+    constexpr int m = 512;
+    constexpr int n = 512;
+    constexpr int k = 512;
     const size_t mem_size_A = m * k * sizeof(float);
     const size_t mem_size_B = k * n * sizeof(float);
     const size_t mem_size_C = m * n * sizeof(float);
