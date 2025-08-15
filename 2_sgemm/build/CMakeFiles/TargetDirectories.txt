@@ -1,0 +1,5 @@
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/sgemm_v1_naive.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/sgemm_v2_mem_coaliescing.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/sgemm_v3_shared_mem.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/edit_cache.dir
+/home/maxiaosong/work_space/cuda_learning/CUDAPratise/cuda_pratise/2_sgemm/build/CMakeFiles/rebuild_cache.dir
