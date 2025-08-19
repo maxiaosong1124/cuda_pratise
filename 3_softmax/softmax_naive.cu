@@ -161,7 +161,7 @@ __global__ void softmax_kernel3(float* out, float* in, int N, int C)
     
     maxval = warpReduceMax(maxval);
 
-    float offset = __shfl_sync(0xFFFFFFFF, maxval, 0);
+    float offset = __shfl_sync(0xFFFFFFFF, maxval, 0); //如果不进行广播，则会导致某些线程只有局部和，后面expf得出的结果就会有问题，因此在规约完毕之后需要进行广播操作。
 
     //compute expf and write the result to global mem
     for(int i = tid; i < C; i += blockDim.x)
@@ -311,7 +311,7 @@ int main() {
   cudaEventRecord(start);
   // Launch kernel
   int blockSize = 128;
-  //int blockSize = 32; 在启动kernel3的时候将blockSize设置为32，因为kernel3每个线程只能为32，每一行只用了一个warp进行计算，如果超过就会有问题
+  //int blockSize = 32; //在启动kernel3的时候将blockSize设置为32，因为kernel3每个线程只能为32，每一行只用了一个warp进行计算，如果超过就会有问题
   int numBlocks = N;
   softmax_kernel2<<<numBlocks, blockSize>>>(d_out, d_inp, N, C);
   cudaEventRecord(stop);
